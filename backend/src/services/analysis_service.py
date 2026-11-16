@@ -19,11 +19,12 @@ def prepare_snapshot(snapshot):
     training_scale(matrices['train'])
     return features,rows,groups,matrices
 
-def analyze_deviation(snapshot,alpha=.05,seed=2026):
+def analyze_deviation(snapshot,alpha=.05,seed=2026,link_version=0):
     if type(alpha) not in (int,float) or not np.isfinite(alpha) or not .01<=alpha<=.2:raise ValueError("预设alpha须在.01–.2之间")
+    if type(link_version) is not int or link_version<0:raise ValueError("同源关联版本须为非负整数")
     features,rows,groups,X=prepare_snapshot(snapshot);fit=fit_train(X['train'],seed);cal=score_with_fit(X['cal'],fit);test=score_with_fit(X['test'],fit);tail=upper_tail_p(cal,test)
     fit['raw_support_codes']=[w['code'] for w,m in zip(groups['train'],fit['raw_support_mask']) if m];fit['support_codes']=[w['code'] for w,m in zip(groups['train'],fit['support_mask']) if m]
     scores=[{"window":w,"d2":float(d),"p":float(p),"cal_ge_count":int(k),"selected":bool(p<=alpha)} for w,d,p,k in zip(groups['test'],test,tail['p'],tail['cal_ge_count'])]
     ecdf_values,ecdf_counts=np.unique(cal,return_counts=True);ecdf_y=np.cumsum(ecdf_counts)/len(cal)
     canonical={"study":snapshot['study'],"features":features,"windows":rows};fit_hash=fingerprint({"version":VERSION,"features":features,"train":[{"code":w['code'],"values":w['values']} for w in groups['train']],"seed":seed,"support_fraction":.8})
-    return {"algorithm_version":VERSION,"study":snapshot['study'],"features":features,"counts":{s:len(g) for s,g in groups.items()},"fit":fit,"fit_hash":fit_hash,"calibration":[{"window":w,"d2":float(d)} for w,d in zip(groups['cal'],cal)],"test":scores,"calibration_ecdf":[{"d2":float(d),"cdf":float(y)} for d,y in zip(ecdf_values,ecdf_y)],"alpha":alpha,"seed":seed,"selected_count":sum(x['selected'] for x in scores),"resolution":tail['resolution'],"tail":tail['tail'],"input_snapshot":canonical,"input_hash":fingerprint({"version":VERSION,"snapshot":canonical,"alpha":alpha,"seed":seed,"support_fraction":.8}),"assumptions":"MCD适用于单峰、近对称/椭圆主群，不适合多峰。定标与MCD只用train；固定训练且cal/test独立可交换时，上尾split-conformal提供边际误报控制，不是条件保证、FDR或危险诊断。","protocol":"四特征与alpha在运行前冻结；不以test选择特征、拟合、阈值或测试分位。筛选仅为人工独立补测线索。"}
+    return {"algorithm_version":VERSION,"study":snapshot['study'],"features":features,"counts":{s:len(g) for s,g in groups.items()},"fit":fit,"fit_hash":fit_hash,"calibration":[{"window":w,"d2":float(d)} for w,d in zip(groups['cal'],cal)],"test":scores,"calibration_ecdf":[{"d2":float(d),"cdf":float(y)} for d,y in zip(ecdf_values,ecdf_y)],"alpha":alpha,"seed":seed,"selected_count":sum(x['selected'] for x in scores),"resolution":tail['resolution'],"tail":tail['tail'],"input_snapshot":canonical,"input_hash":fingerprint({"version":VERSION,"snapshot":canonical,"alpha":alpha,"seed":seed,"support_fraction":.8}),"link_version":link_version,"assumptions":"MCD适用于单峰、近对称/椭圆主群，不适合多峰。定标与MCD只用train；固定训练且cal/test独立可交换时，上尾split-conformal提供边际误报控制，不是条件保证、FDR或危险诊断。","protocol":"四特征与alpha在运行前冻结；不以test选择特征、拟合、阈值或测试分位。筛选仅为人工独立补测线索。"}

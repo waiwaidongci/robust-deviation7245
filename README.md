@@ -85,3 +85,17 @@ npm run dev
 .env参数：COMPOSE_PROJECT_NAME、FRONTEND_PORT、BACKEND_PORT、DB_PORT、JWT_SECRET、SEED_DEMO；DATABASE_URL/REDIS_URL由Compose定义。角色枚举在backend/constants/roles与frontend/constants/enums，参与路由鉴权和页面角色显示；运行枚举backend/constants/status与同一前端enums参与worker/StatusBadge；审阅Literal位于backend/schemas/note并在model/service与前端ReviewStatus使用；split Literal位于backend/schemas/window，分析校验与前端SplitRoles保持train/cal/test。
 
 测试脚本、关键JSON/CSV、截图及已知差异在同批 `test-artifacts/gb-0026/TESTING.md`。本项目为单worker研究工具，无来源上传、任务崩溃恢复、多worker去重、真实设备或自动告警。清理仅本题：`docker compose down -v --remove-orphans`。MIT License。
+
+## 同源窗口关联与完整版本裁决
+
+不同编号的库房窗口可能来自同一原样。来源页（`/inputs`）为同一研究维护可撤销的同源关联；关联是无向边，间接相连的窗口按连通分量合并为一组。关联组内只要出现冻结窗口分属train、cal、test中的两个及以上，该组就不能当作独立证据。
+
+- **新研究**：创建时对当前完整关联版本求组，跨拆分即409阻止；通过时冻结该版本号（`link_version`）。
+- **已批准下载**：导出前按最新完整版本重新裁决，冲突未解除时403暂停，仅撤销误关联且已无冲突后恢复。
+- **历史研究**：每次关联增删后，按各自冻结窗口重算；仅写`conflict_version/conflict_blocked/conflict_report`，原评分、p、D²、`fit_hash`、`input_hash`与结果JSON均不改。结果页列出冲突链（窗口、拆分、冻结编号、连接边）。
+- **并发**：`link_heads`单行在创建、导出、worker写回与关联增删时以事务行锁取版本；旧计算写回时按当时完整版本重新裁决，不能恢复失效资格。
+- **旧档升级**：`migrations/002_source_links.sql` 与启动时幂等 `upgrade_schema()` 补列建表；`link_version` 为空的旧运行标记为v0基线，并按当前完整版本补裁决。
+
+## 测试
+
+本批测试脚本、覆盖链式合并/拆链/并发/旧档升级的运行记录与已知差异见同批 `test-artifacts/gb-0027/TESTING.md`。

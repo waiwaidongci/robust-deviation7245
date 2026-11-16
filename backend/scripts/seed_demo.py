@@ -5,10 +5,14 @@ from src.models import User,ArchiveStudy,ClimateWindow,FeatureSpec,DeviationRun,
 from src.utils.security import hash_password
 from src.services.study_service import create_snapshot
 from src.services.analysis_service import analyze_deviation
+from src.services.link_service import ensure_head
+from src.config.upgrade import upgrade_schema
 
 def seed():
     Base.metadata.create_all(engine)
+    upgrade_schema()
     with SessionLocal() as db:
+        ensure_head(db);db.commit()
         for role,name in [('admin','沈棠 · 材料负责人'),('analyst','温砚 · 联合量研究员'),('viewer','秦禾 · 补测阅读者')]:
             email=role+'@shuangleng.demo'
             if not db.query(User).filter_by(email=email).first():db.add(User(email=email,name=name,role=role,password_hash=hash_password('Shuangleng2026!')))
@@ -27,6 +31,6 @@ def seed():
                 if not db.query(ClimateWindow).filter_by(study_id=study.id,code=wc).first():db.add(ClimateWindow(study_id=study.id,code=wc,split=split,values={fc:float(v) for (fc,*_),v in zip(definitions,row)},note='合成独立窗口；train/cal/test预先分配，不是连续时间序列或实时风险告警。'))
             db.flush();studies.append(study)
         if not db.query(DeviationRun).filter_by(name='主群四量 · 固定拆分基线').first():
-            study=studies[0];snapshot=create_snapshot(db,study);result=analyze_deviation(snapshot,.05,2026);run=DeviationRun(name='主群四量 · 固定拆分基线',study_id=study.id,alpha=.05,seed=2026,input_snapshot=snapshot,status='completed',result=result,owner='温砚 · 联合量研究员');db.add(run);db.flush();db.add(ReviewNote(run_id=run.id,title='首批联合偏离补测说明',interpretation='训练支持不是新样本标签；cal/test交换时的边际误报控制不等于条件保证、FDR或危险诊断。',proposal='对预设alpha筛选窗口独立补测，保留四量定义与新窗口独立性。',status='approved',owner='温砚 · 联合量研究员',reviewer='沈棠 · 材料负责人',review_note='批准研究归档；保持固定特征与独立补测，不把训练支持或低p当危险事实。'))
+            study=studies[0];snapshot=create_snapshot(db,study);result=analyze_deviation(snapshot,.05,2026,0);run=DeviationRun(name='主群四量 · 固定拆分基线',study_id=study.id,alpha=.05,seed=2026,input_snapshot=snapshot,status='completed',result=result,owner='温砚 · 联合量研究员',link_version=0);db.add(run);db.flush();db.add(ReviewNote(run_id=run.id,title='首批联合偏离补测说明',interpretation='训练支持不是新样本标签；cal/test交换时的边际误报控制不等于条件保证、FDR或危险诊断。',proposal='对预设alpha筛选窗口独立补测，保留四量定义与新窗口独立性。',status='approved',owner='温砚 · 联合量研究员',reviewer='沈棠 · 材料负责人',review_note='批准研究归档；保持固定特征与独立补测，不把训练支持或低p当危险事实。'))
         db.commit();print(json.dumps({m.__tablename__:db.query(m).count() for m in [User,ArchiveStudy,ClimateWindow,FeatureSpec,DeviationRun,ReviewNote]},ensure_ascii=False))
 if __name__=='__main__':seed()
